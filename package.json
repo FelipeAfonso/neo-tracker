@@ -11,10 +11,13 @@
     "@emotion/react": "^11.5.0",
     "@emotion/styled": "^11.3.0",
     "@mui/material": "^5.1.0",
+    "@react-three/fiber": "^7.0.19",
+    "@types/three": "^0.134.0",
     "date-fns": "^2.25.0",
     "next": "12.0.3",
     "react": "17.0.2",
-    "react-dom": "17.0.2"
+    "react-dom": "17.0.2",
+    "three": "^0.134.0"
   },
   "devDependencies": {
     "@types/node": "16.11.7",
