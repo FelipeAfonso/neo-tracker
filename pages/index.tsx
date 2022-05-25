@@ -1,8 +1,8 @@
-import type { GetServerSideProps, GetStaticProps, NextPage } from 'next'
+import type { GetStaticProps, NextPage } from 'next'
 import { Box } from '@mui/system'
 import { NasaDailyFeedBase } from '../types/nasa'
 import { Card, CardContent, Typography } from '@mui/material'
-import { formatDistanceToNow, isAfter, isBefore, parse, parseJSON } from 'date-fns'
+import { formatDistanceToNow, isBefore } from 'date-fns'
 import { useEffect, useState } from 'react'
 
 const Home: NextPage<{ data?: NasaDailyFeedBase }> = ({ data }) => {

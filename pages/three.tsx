@@ -1,6 +1,7 @@
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Dialog, Popover, Typography } from '@mui/material'
+import { Canvas, ThreeEvent, useFrame } from '@react-three/fiber'
 import { GetStaticProps, NextPage } from 'next'
-import { useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { MathUtils, Mesh, TextureLoader } from 'three'
 import { NasaDailyFeedBase } from '../types/nasa'
 
@@ -13,7 +14,20 @@ interface SphereProps extends MeshType {
   rotatingSpeed?: number
 }
 
-const getRandom = () => MathUtils.randFloatSpread(100) // (Math.random() * 10 + 2) * (Math.random() > 0.5 ? 1 : -1)
+const getRandomPositionWithOffset: (size: number, offset: number) => [number, number, number] = (
+  size,
+  offset,
+) => {
+  const pos: [number, number, number] = [
+    MathUtils.randFloatSpread(size),
+    MathUtils.randFloatSpread(size),
+    MathUtils.randFloatSpread(size),
+  ]
+  if (pos.every((p) => (p >= 0 && p < offset) || (p <= 0 && p > -offset))) {
+    return getRandomPositionWithOffset(size, offset)
+  }
+  return pos
+}
 
 const Sphere = (props: SphereProps) => {
   const { map, normalMap, scale, color, rotatingSpeed, ...meshProps } = props
@@ -39,77 +53,110 @@ const Sphere = (props: SphereProps) => {
 }
 
 const Three: NextPage<{ data?: NasaDailyFeedBase }> = ({ data }) => {
-  const internallySortedData = Object.values(data?.near_earth_objects ?? {})
-    .reduce((a, c) => [...a, ...c], [])
-    .map((d) => ({
-      ...d,
-      close_approach_data: d.close_approach_data?.sort((a, b) =>
-        a.epoch_date_close_approach < b.epoch_date_close_approach ? 1 : -1,
-      )[0],
-    }))
-    .sort((a, b) =>
-      a.close_approach_data.epoch_date_close_approach >
-      b.close_approach_data.epoch_date_close_approach
-        ? 1
-        : -1,
-    )
+  const internallySortedData = useMemo(
+    () =>
+      Object.values(data?.near_earth_objects ?? {})
+        .reduce((a, c) => [...a, ...c], [])
+        .map((d) => ({
+          ...d,
+          close_approach_data: d.close_approach_data?.sort((a, b) =>
+            a.epoch_date_close_approach < b.epoch_date_close_approach ? 1 : -1,
+          )[0],
+        }))
+        .sort((a, b) =>
+          a.close_approach_data.miss_distance.lunar > b.close_approach_data.miss_distance.lunar
+            ? 1
+            : -1,
+        ),
+    [data],
+  )
+
+  const [dialogInfo, setDialogInfo] = useState<{
+    id?: string
+    x?: number
+    y?: number
+  }>({})
+
+  const handleOpenDialog = useCallback(
+    (id: string) => (e: ThreeEvent<PointerEvent>) =>
+      setDialogInfo({ id, x: e.nativeEvent.screenX, y: e.nativeEvent.screenY }),
+    [setDialogInfo],
+  )
 
   return (
-    <Canvas
-      style={{
-        height: '100vh',
-        width: '100vw',
-        background: '#000',
-      }}
-    >
-      <ambientLight />
-      <pointLight position={[10, 10, 10]} />
-      <Sphere
-        position={[0, 0, 0]}
-        map="assets/earthMap.jpg"
-        normalMap="assets/earthNormalMap.jpg"
-        scale={0.75 / 7}
-      />
-      <Sphere
-        position={[1, 0, 0]}
-        map="assets/moonMap.jpg"
-        normalMap="assets/moonNormalMap.jpg"
-        scale={0.33 / 7}
-        rotatingSpeed={0.3}
-      />
-      <Sphere
-        position={[-4, 0, 0]}
-        map="assets/sunMap.jpg"
-        normalMap="assets/sunNormalMap.jpg"
-        scale={1.5 / 7}
-        rotatingSpeed={0.1}
-      />
+    <>
+      <Canvas
+        style={{
+          height: '100vh',
+          width: '100vw',
+          background: '#000',
+        }}
+      >
+        <ambientLight />
+        <pointLight position={[10, 10, 10]} />
+        <Sphere
+          position={[0, 0, 0]}
+          map="assets/earthMap.jpg"
+          normalMap="assets/earthNormalMap.jpg"
+          scale={0.75 / 7}
+        />
+        <Sphere
+          position={[1, 0, 0]}
+          map="assets/moonMap.jpg"
+          normalMap="assets/moonNormalMap.jpg"
+          scale={0.33 / 7}
+          rotatingSpeed={0.3}
+        />
+        <Sphere
+          position={[-4, 0, 0]}
+          map="assets/sunMap.jpg"
+          normalMap="assets/sunNormalMap.jpg"
+          scale={1.5 / 7}
+          rotatingSpeed={0.1}
+        />
 
-      {Array.from(new Array(500))
-        .fill(0)
-        .map((_, i) => (
+        {Array.from(new Array(500))
+          .fill(0)
+          .map((_, i) => (
+            <Sphere
+              key={i}
+              position={getRandomPositionWithOffset(250, 50)}
+              color="#fff"
+              scale={Math.random() * 0.1}
+              rotatingSpeed={0}
+            />
+          ))}
+        {internallySortedData.map((d, i) => (
           <Sphere
             key={i}
-            position={[getRandom(), getRandom(), getRandom()]}
-            color="#fff"
-            scale={Math.random() * 0.1}
-            rotatingSpeed={0}
+            scale={0.1}
+            rotatingSpeed={Math.random() * 0.2}
+            onPointerEnter={handleOpenDialog(d.id)}
+            onPointerLeave={() => setDialogInfo({})}
+            map="assets/asteroidMap.jpg"
+            position={[
+              0,
+              i % 2
+                ? Number(d.close_approach_data.miss_distance.lunar) / 50
+                : -Number(d.close_approach_data.miss_distance.lunar) / 50,
+              0,
+            ]}
           />
         ))}
-      {internallySortedData.map((d, i) => (
-        <Sphere
-          key={i}
-          scale={0.1}
-          rotatingSpeed={Math.random() * 0.2}
-          map="assets/asteroidMap.jpg"
-          position={[
-            MathUtils.randFloatSpread(10),
-            MathUtils.randFloatSpread(10),
-            MathUtils.randFloatSpread(10),
-          ]}
-        />
-      ))}
-    </Canvas>
+      </Canvas>
+      <div
+        style={{
+          display: dialogInfo.id ? 'block' : 'none',
+          position: 'absolute',
+          top: (dialogInfo.y ?? 0) - 140,
+          left: dialogInfo.x,
+          zIndex: 999,
+          backgroundColor: 'white',
+        }}
+      >
+        {internallySortedData.find((d) => d.id === dialogInfo.id)?.name}
+      </div>
+    </>
   )
 }
 
